@@ -13,16 +13,17 @@ int main()
     for(int i = 0; i < 8; ++i) {
         results.emplace_back(
             pool.enqueue([i] {
-                std::cout << "hello " << i << std::endl;
+                printf("%d start\n", i);
                 std::this_thread::sleep_for(std::chrono::seconds(1));
-                std::cout << "world " << i << std::endl;
+                printf("           %d end\n", i);
                 return i*i;
             })
         );
     }
 
+    // 异步访问task结果
     for(auto && result: results)
-        std::cout << result.get() << ' ';
+        std::cout << result.get() << "\n";
     std::cout << std::endl;
     
     return 0;
