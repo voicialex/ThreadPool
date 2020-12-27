@@ -10,6 +10,7 @@ public:
     ~Job();
 };
 
+
 typedef std::vector<Job> JobQueue;
 
 class BaseJobQueue
@@ -44,7 +45,7 @@ bool BaseJobQueue::enqueue(Job& job)
         return true;
     }
     // unlock
-    return false
+    return false;
 }
 
 #endif // __JOB_QUEUE_H

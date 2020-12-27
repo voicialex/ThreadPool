@@ -70,7 +70,7 @@ bool BaseThread::setThreadName(const char* thread_name)
 {
 #ifdef __linux__
     if (!pthread_setname_np(mThreadId, mThreadName.c_str()))
-#elif __MACOSX__
+#elif __APPLE__
     if (!pthread_setname_np(mThreadName.c_str()))
 #endif
     {
