@@ -1,17 +1,51 @@
 #ifndef __JOB_QUEUE_H
 #define __JOB_QUEUE_H
 
-#include <vector>
-
-class Job
+#include <deque>    // 在末尾或开头插入元素, 复杂度O(1)
+// #include <vector>   // 在末尾插入元素,复杂度O(1), 其他地方复杂度O(n) 与到vector结尾的距离成线性
+#include <memory>
+// #include <mutex>
+class BaseJob
 {
+#define URGENT      1<<1
+#define RUN_SUCCESS 1<<3
+typedef std::shared_ptr<BaseJob> Ptr;
+
 public:
-    Job();
-    ~Job();
+    BaseJob(int flag = 0);
+    ~BaseJob();
+
+    bool urgent() const
+    {
+        return !!(mFlag & URGENT);
+    }
+
+    virtual void run() {puts("this is base job");}
+
+protected:
+
+private:
+    int mFlag;
+
+    void urgent(bool active)
+    {
+        if (active) {
+            mFlag |= URGENT;
+        } else {
+            mFlag &= ~URGENT;
+        }
+    }
 };
 
+BaseJob::BaseJob(int flag)
+    :mFlag(flag)
+{
+}
 
-typedef std::vector<Job> JobQueue;
+
+/***********************************/
+// can be intergated in Thread Pool Manager
+typedef std::deque<BaseJob> JobQueue;
 
 class BaseJobQueue
 {
@@ -19,11 +53,12 @@ public:
     BaseJobQueue(unsigned int max_size = 0);
     ~BaseJobQueue();
 
-    bool enqueue(Job& job);
+    bool enqueue(BaseJob& job);
+
+    JobQueue mJobQueue;
 
 private:
     unsigned int mMaxSize;
-    JobQueue mJobQueue;
 };
 
 BaseJobQueue::BaseJobQueue(unsigned int max_size)
@@ -37,11 +72,11 @@ BaseJobQueue::~BaseJobQueue()
 }
 
 
-bool BaseJobQueue::enqueue(Job& job)
+bool BaseJobQueue::enqueue(BaseJob& job)
 {
     // lock
     if (!mMaxSize || mJobQueue.size() < mMaxSize) {
-        mJobQueue.push_back(job);
+        mJobQueue.emplace_back(job);
         return true;
     }
     // unlock
