@@ -16,10 +16,11 @@ public:
     ~ThreadPoolManager();
 
     bool enqueue(BaseJob* job);
+    bool enqueue(std::shared_ptr<BaseJob>& job);
 
     std::vector<BaseWorker*> workers;
-    std::deque<BaseJob*> jobs;
-    // unsigned int mTasksSize;
+    // std::deque<BaseJob*> jobs;
+    std::deque<std::shared_ptr<BaseJob>> jobs;
 
     std::mutex mMutex;
     std::condition_variable mCondition;
@@ -40,6 +41,7 @@ public:
 
     void run();
     void runJob(BaseJob* job);
+    void runJob(std::shared_ptr<BaseJob>& job);
 
     std::string mName;
     ThreadPoolManager* mPoolManager;
@@ -64,6 +66,7 @@ void BaseWorker::run()
     while(1)
     {
         BaseJob* job;
+        // std::shared_ptr<BaseJob> job;
         {
             // 线程间互斥
             printf("%s unlock +1 ... \n", mName.c_str());
@@ -75,8 +78,9 @@ void BaseWorker::run()
                 puts("<< ready to end ThreadPool lifecycle >>");
                 return ;
             }
+            job = mPoolManager->jobs.front().get();
+            
             // job = std::move(mPoolManager->jobs.front());
-            job = mPoolManager->jobs.front();
             mPoolManager->jobs.pop_front();
         }
         printf("%s lock -1 ... \n", mName.c_str());
@@ -86,6 +90,27 @@ void BaseWorker::run()
 }
 
 void BaseWorker::runJob(BaseJob* job)
+{
+    try {
+        if(!tearup()) {
+            return;
+        }
+    } catch(...) {
+        puts("excepton caught in worker::tearup");
+    }
+
+    job->run();
+
+    try {
+        if(!teardown()) {
+            return;
+        }
+    } catch(...) {
+        puts("excepton caught in worker::teardown");
+    }
+}
+
+void BaseWorker::runJob(std::shared_ptr<BaseJob>& job)
 {
     try {
         if(!tearup()) {
@@ -132,15 +157,27 @@ ThreadPoolManager::~ThreadPoolManager()
         printf("---------------%s join\n", worker->mName.c_str());
         workers.front()->join();
     }
-
 }
 
 bool ThreadPoolManager::enqueue(BaseJob* job)
 {
-    {
-        // puts("Pool lock ...");
+    {   // puts("Pool lock ...");
         std::unique_lock<std::mutex> lock(mMutex);
         jobs.emplace_back(job);   
+    }
+    mCondition.notify_one();
+    // puts("notify ...");
+
+    return true;
+}
+
+bool ThreadPoolManager::enqueue(std::shared_ptr<BaseJob>& job)
+{
+    {   // puts("Pool lock ...");
+        std::unique_lock<std::mutex> lock(mMutex);
+        jobs.emplace_back(job);
+        
+        // jobs.front()->run();
     }
     mCondition.notify_one();
     // puts("notify ...");

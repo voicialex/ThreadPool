@@ -13,7 +13,7 @@ typedef std::shared_ptr<BaseJob> Ptr;
 
 public:
     BaseJob(int flag = 0);
-    ~BaseJob();
+    virtual ~BaseJob();
 
     bool urgent() const
     {
@@ -40,6 +40,12 @@ private:
 BaseJob::BaseJob(int flag)
     :mFlag(flag)
 {
+    puts("BaseJob");
+}
+
+BaseJob::~BaseJob()
+{
+    puts("~BaseJob");
 }
 
 
