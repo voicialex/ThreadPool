@@ -29,6 +29,8 @@
 
 #endif
 
+
+
 /************************************************/
 
 #ifndef QGLOBAL_H
@@ -158,3 +160,5 @@
 #elif !defined(Q_OS_UNIX)
 #  define Q_OS_UNIX
 #endif
+
+#endif // QGLOBAL_H
