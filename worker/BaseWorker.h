@@ -35,8 +35,24 @@ public:
     BaseWorker(ThreadPoolManager* owner, const char* thread_name = "");
     virtual ~BaseWorker();
 
-    virtual bool tearup() {printf("%s tearUp\n", mName.c_str()); return true;}
-    virtual bool teardown() {printf("%s tearDown\n", mName.c_str()); return true;}
+    virtual bool tearup(BaseJob* job) 
+    {
+        printf("%s tearUp\n", mName.c_str());
+        if (job) {
+            return true;
+        } else {
+            return false;
+        }
+    }
+    virtual bool teardown(BaseJob* job)
+    {
+        printf("%s tearDown\n", mName.c_str());
+        if (job) {
+            delete job;
+            job = NULL;
+        }
+        return true;
+    }
 
     void run();
     void runJob(BaseJob* job);
@@ -88,7 +104,7 @@ void BaseWorker::run()
 void BaseWorker::runJob(BaseJob* job)
 {
     try {
-        if(!tearup()) {
+        if(!tearup(job)) {
             return;
         }
     } catch(...) {
@@ -98,7 +114,7 @@ void BaseWorker::runJob(BaseJob* job)
     job->run();
 
     try {
-        if(!teardown()) {
+        if(!teardown(job)) {
             return;
         }
     } catch(...) {

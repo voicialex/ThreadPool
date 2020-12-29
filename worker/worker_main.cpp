@@ -11,7 +11,7 @@ public:
     ~myJob() {printf("~myjob%d\n", order);}
     void run() 
     {
-        printf("***this is %d job\n", order);
+        printf("                 ***this is %d job\n", order);
         usleep(100000);
     }
 
@@ -32,22 +32,14 @@ int main()
     
     // 1. test for threadPool
 
-    // ThreadPoolManager Pool(3);
-    // sleep(3);
-    // myJob *job;
-    // for (int i = 0; i < 20; i++) {
-    //     job = new myJob(i);
-    //     Pool.enqueue(job);
-    // }
-    
-
-    // 2. test for share pointer job
-
-
-    {
-        auto sp = std::make_shared<myJob>(2);
-        sp->run();
+    ThreadPoolManager Pool(3);
+    sleep(1);
+    myJob *job;
+    for (int i = 0; i < 20; i++) {
+        job = new myJob(i);
+        Pool.enqueue(job);
     }
+    
 
     puts("\nmain out +++");
     return 1;
