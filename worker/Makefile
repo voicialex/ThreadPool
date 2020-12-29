@@ -1,12 +1,12 @@
 CC = g++
 TARGET = main_test
 
-SOURCES += worker_main.cpp
+INC_DIRS	+= ../TaskQueue/
+SOURCES		+= worker_main.cpp
 
 $(TARGET) : $(SOURCES)
-	$(info generate TARGET)
-	$(CC) $^ -lpthread -o $@
-	$(info generate TARGET successfully)
+	$(info generating TARGET)
+	$(CC) $^ --std=c++11 -I$(INC_DIRS)  -lpthread -o $@
 
 clean:
 	@rm $(TARGET)

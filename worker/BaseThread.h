@@ -14,6 +14,8 @@ public:
     virtual ~BaseThread();
 
     bool start();
+    bool join();
+
     pthread_t mThreadId;
 
 protected:
@@ -22,9 +24,7 @@ protected:
 
     bool started();
     bool isSelf();
-    bool join();
-
-    virtual void run() = 0;  // this should be pure virtual function, user finish it
+    virtual void run() {};  // this should be pure virtual function, user finish it
 
 private:
     pthread_t mInvalidId;
@@ -32,13 +32,12 @@ private:
     std::string mThreadName;
 
     static void* func(void* arg) {
-        puts("work start");
-
+        puts("thread work start");
+        
         BaseThread *self = static_cast<BaseThread*> (arg);
         self->run();
 
-        puts("work done");
-
+        puts("thread work done");
         return NULL;
     }
 };
@@ -61,7 +60,7 @@ BaseThread::~BaseThread()
     sleep(3);
     puts("destructor");
 
-    // join();
+    // join();              // 不能放这里执行, 主线程会发生阻塞, 直接卡在线程创建阶段; 可以放在Pool的析构里执行
     // pthread_exit(NULL);
 }
 
@@ -76,7 +75,7 @@ bool BaseThread::setThreadName(const char* thread_name)
     {
         char name[32];
         pthread_getname_np(mThreadId, name, 32);
-        printf("setThreadName mThreadId : %ld, name : %s\n", mThreadId, name);
+        printf("(%s) mThreadId: %ld, name: %s\n", __func__, mThreadId, name);
         return true;
     }
     return false;
@@ -127,16 +126,18 @@ bool BaseThread::start()
     if (!pthread_attr_init(&attr)) {
         if (!pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE)) {
             if (!pthread_create(&mThreadId, &attr, func, this)) {
-                printf("pthread created: mThreadId:%ld   mInvalidId:%ld \n", mThreadId, mInvalidId);
+                // printf("pthread created: mThreadId:%ld   mInvalidId:%ld \n", mThreadId, mInvalidId);
                 setThreadPriority(mPriority);
                 setThreadName(mThreadName.c_str());
-                join();
                 ret = true;
             }
         }
+        
         if (pthread_attr_destroy(&attr) != 0) {
             puts("destory attribute failed");
         }
+
+        // join();
     }
 
     return ret;

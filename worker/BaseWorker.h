@@ -3,66 +3,55 @@
 
 #include <mutex>
 #include <condition_variable>
+#include <vector>
 #include "BaseThread.h"
 #include "BaseJobQueue.h"
 
+class BaseWorker;
+
+class ThreadPoolManager
+{
+public:
+    ThreadPoolManager(int threads_num = 3);
+    ~ThreadPoolManager();
+
+    bool enqueue(BaseJob* job);
+
+    std::vector<BaseWorker*> workers;
+    std::deque<BaseJob*> jobs;
+    // unsigned int mTasksSize;
+
+    std::mutex mMutex;
+    std::condition_variable mCondition;
+    bool stoped;
+
+};
+
+
+/* I put ThreadPoolManager and ThreadWorker together, because they are mutual aggregation*/
 class BaseWorker : public BaseThread
 {
 public:
-    BaseWorker(std::mutex* pool_mutex, std::condition_variable* pool_condition, const char* thread_name = "");
+    BaseWorker(ThreadPoolManager* owner, const char* thread_name = "");
     virtual ~BaseWorker();
 
-    virtual bool tearup() {puts("tearup"); return true;}
-    virtual bool teardown() {puts("teareown"); return true;}
+    virtual bool tearup() {printf("%s tearUp\n", mName.c_str()); return true;}
+    virtual bool teardown() {printf("%s tearDown\n", mName.c_str()); return true;}
 
-    void run()
-    {
-        while(1)
-        {
-            BaseJob job;
-            {
-                std::unique_lock<std::mutex> lock(*mMutex);
-                mCondition->wait(lock, NULL);
+    void run();
+    void runJob(BaseJob* job);
 
-                
-            }
-        }
-    }
-
-    void run(BaseJob& job)
-    {
-        try {
-            if(!tearup()) {
-                return;
-            }
-        } catch(...) {
-            puts("excepton caught in worker::tearup");
-        }
-
-        job.run();
-
-        try {
-            if(!teardown()) {
-                return;
-            }
-        } catch(...) {
-            puts("excepton caught in worker::teardown");
-        }
-    }
-
-private:
     std::string mName;
-    std::mutex* mMutex;
-    std::condition_variable* mCondition;
+    ThreadPoolManager* mPoolManager;
+
 };
  
-BaseWorker::BaseWorker(std::mutex* pool_mutex, std::condition_variable* pool_condition, const char* thread_name)
+BaseWorker::BaseWorker(ThreadPoolManager* owner, const char* thread_name)
     : BaseThread(thread_name)
-    , mMutex(pool_mutex)
-    , mCondition(pool_condition)
+    , mPoolManager(owner)
 {
     mName = thread_name;
-    puts("BaseWorker");
+    printf("BaseWorker: %s \n", mName.c_str());
 }
 
 BaseWorker::~BaseWorker()
@@ -70,6 +59,94 @@ BaseWorker::~BaseWorker()
     puts("~BaseWorker");
 }
 
+void BaseWorker::run()
+{
+    while(1)
+    {
+        BaseJob* job;
+        {
+            // 线程间互斥
+            printf("%s unlock +1 ... \n", mName.c_str());
+            std::unique_lock<std::mutex> lock(mPoolManager->mMutex);
+
+            mPoolManager->mCondition.wait(lock, [this](){return mPoolManager->stoped || !mPoolManager->jobs.empty();});
+
+            if (mPoolManager->stoped && mPoolManager->jobs.empty()) {
+                puts("<< ready to end ThreadPool lifecycle >>");
+                return ;
+            }
+            // job = std::move(mPoolManager->jobs.front());
+            job = mPoolManager->jobs.front();
+            mPoolManager->jobs.pop_front();
+        }
+        printf("%s lock -1 ... \n", mName.c_str());
+        
+        runJob(job);
+    }
+}
+
+void BaseWorker::runJob(BaseJob* job)
+{
+    try {
+        if(!tearup()) {
+            return;
+        }
+    } catch(...) {
+        puts("excepton caught in worker::tearup");
+    }
+
+    job->run();
+
+    try {
+        if(!teardown()) {
+            return;
+        }
+    } catch(...) {
+        puts("excepton caught in worker::teardown");
+    }
+}
+
+
+ThreadPoolManager::ThreadPoolManager(int threads_num)
+    :stoped(false)
+{
+    for (int i = 0; i < threads_num;  ++i) {
+        std::string thread_name = "thread__" + std::to_string(i);
+        BaseWorker *worker = new BaseWorker(this, thread_name.c_str());
+
+        workers.emplace_back(worker);
+        worker->start();
+    }
+}
+
+ThreadPoolManager::~ThreadPoolManager()
+{
+    {
+        std::unique_lock<std::mutex> mMutex;
+        stoped = true;
+    }
+    mCondition.notify_all();
+
+    for (auto worker:workers)
+    {
+        printf("---------------%s join\n", worker->mName.c_str());
+        workers.front()->join();
+    }
+
+}
+
+bool ThreadPoolManager::enqueue(BaseJob* job)
+{
+    {
+        // puts("Pool lock ...");
+        std::unique_lock<std::mutex> lock(mMutex);
+        jobs.emplace_back(job);   
+    }
+    mCondition.notify_one();
+    // puts("notify ...");
+
+    return true;
+}
 
 
 #endif // __WORKER_H
